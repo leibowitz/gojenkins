@@ -17,6 +17,7 @@ package gojenkins
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"strconv"
 )
@@ -268,7 +269,7 @@ func (j *Job) HasQueuedBuild() {
 
 }
 
-func (j *Job) InvokeSimple(params map[string]string) bool {
+func (j *Job) Build(params map[string]string) *http.Response {
 	endpoint := "/build"
 	if len(j.GetParameters()) > 0 {
 		endpoint = "/buildWithParameters"
@@ -277,12 +278,23 @@ func (j *Job) InvokeSimple(params map[string]string) bool {
 	for k, v := range params {
 		data.Set(k, v)
 	}
-	resp := j.Jenkins.Requester.Post(j.Base+endpoint, bytes.NewBufferString(data.Encode()), nil, nil)
+	return j.Jenkins.Requester.Post(j.Base+endpoint, bytes.NewBufferString(data.Encode()), nil, nil)
+}
+
+func (j *Job) Successful(resp *http.Response) bool {
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		Error.Println("Could not invoke job %s", j.GetName())
 		return false
 	}
 	return true
+}
+
+func (j *Job) InvokeSimple(params map[string]string) bool {
+	resp := j.Build(params)
+	triggered := j.Successful(resp)
+	if !triggered {
+		Error.Println("Could not invoke job %s", j.GetName())
+	}
+	return triggered
 }
 
 func (j *Job) Invoke(files []string, skipIfRunning bool, params map[string]string, cause string, securityToken string) bool {
