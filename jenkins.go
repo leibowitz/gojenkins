@@ -66,10 +66,15 @@ func (j *Jenkins) Init() *Jenkins {
 
 	// Check Connection
 	j.Raw = new(executorResponse)
-	j.Requester.GetJSON("/", j.Raw, nil)
-	j.Version = j.Requester.LastResponse.Header.Get("X-Jenkins")
+	rsp, err := j.Requester.GetJSON("/", j.Raw, nil)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return nil
+	}
+	j.Version = rsp.Header.Get("X-Jenkins")
 	if j.Raw == nil {
-		panic("Connection Failed, Please verify that the host and credentials are correct.")
+		Error.Println("Connection Failed, Please verify that the host and credentials are correct.")
+		return nil
 	}
 	return j
 }
@@ -90,7 +95,11 @@ func (j *Jenkins) initLoggers() {
 
 // Get Basic Information About Jenkins
 func (j *Jenkins) Info() *executorResponse {
-	j.Requester.Do("GET", "/", nil, j.Raw, nil)
+	_, err := j.Requester.Do("GET", "/", nil, j.Raw, nil)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return nil
+	}
 	return j.Raw
 }
 
@@ -119,7 +128,11 @@ func (j *Jenkins) CreateNode(name string, numExecutors int, description string, 
 		}),
 	}
 
-	resp := j.Requester.GetXML("/computer/doCreateItem", nil, qr)
+	resp, err := j.Requester.GetXML("/computer/doCreateItem", nil, qr)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return nil
+	}
 	if resp.StatusCode < 400 {
 		node.Poll()
 		return node
@@ -199,7 +212,11 @@ func (j *Jenkins) GetJob(id string) *Job {
 
 func (j *Jenkins) GetAllNodes() []*Node {
 	computers := new(Computers)
-	j.Requester.GetJSON("/computer", computers, nil)
+	_, err := j.Requester.GetJSON("/computer", computers, nil)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return nil
+	}
 	nodes := make([]*Node, len(computers.Computers))
 	for i, node := range computers.Computers {
 		name := node.DisplayName
@@ -228,7 +245,11 @@ func (j *Jenkins) GetAllBuildIds(job string) []jobBuild {
 // Does not query each single Job.
 func (j *Jenkins) GetAllJobNames() []job {
 	exec := Executor{Raw: new(executorResponse), Jenkins: j}
-	j.Requester.GetJSON("/", exec.Raw, nil)
+	_, err := j.Requester.GetJSON("/", exec.Raw, nil)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return nil
+	}
 	return exec.Raw.Jobs
 }
 
@@ -330,13 +351,21 @@ func (j *Jenkins) CreateView(name string, viewType string) bool {
 			"mode": viewType,
 		}),
 	}
-	r := j.Requester.Post(url, nil, view.Raw, data)
+	r, err := j.Requester.Post(url, nil, view.Raw, data)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return false
+	}
 	return r.StatusCode == 200
 }
 
 func (j *Jenkins) Poll() int {
-	j.Requester.GetJSON("/", j.Raw, nil)
-	return j.Requester.LastResponse.StatusCode
+	rsp, err := j.Requester.GetJSON("/", j.Raw, nil)
+	if err != nil {
+		Error.Printf("Error: %s\n", err.Error())
+		return 0
+	}
+	return rsp.StatusCode
 }
 
 // Creates a new Jenkins Instance

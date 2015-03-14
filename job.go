@@ -191,17 +191,26 @@ func (j *Job) GetDownstreamJobs() []*Job {
 }
 
 func (j *Job) Enable() bool {
-	resp := j.Jenkins.Requester.Post(j.Base+"/enable", nil, nil, nil)
+	resp, err := j.Jenkins.Requester.Post(j.Base+"/enable", nil, nil, nil)
+	if err != nil {
+		return false
+	}
 	return resp.StatusCode == 200
 }
 
 func (j *Job) Disable() bool {
-	resp := j.Jenkins.Requester.Post(j.Base+"/disable", nil, nil, nil)
+	resp, err := j.Jenkins.Requester.Post(j.Base+"/disable", nil, nil, nil)
+	if err != nil {
+		return false
+	}
 	return resp.StatusCode == 200
 }
 
 func (j *Job) Delete() bool {
-	resp := j.Jenkins.Requester.Post(j.Base+"/doDelete", nil, nil, nil)
+	resp, err := j.Jenkins.Requester.Post(j.Base+"/doDelete", nil, nil, nil)
+	if err != nil {
+		return false
+	}
 	return resp.StatusCode == 200
 }
 
@@ -216,8 +225,11 @@ func (j *Job) Create(config string, qr ...interface{}) *Job {
 	if len(qr) > 0 {
 		querystring = qr[0].(map[string]string)
 	}
-	resp := j.Jenkins.Requester.PostXML("/createItem", config, j.Raw, querystring)
-	if resp.Status == "200" {
+	resp, err := j.Jenkins.Requester.PostXML("/createItem", config, j.Raw, querystring)
+	if err != nil {
+		return nil
+	}
+	if resp.StatusCode == 200 {
 		return j
 	} else {
 		return nil
@@ -226,7 +238,10 @@ func (j *Job) Create(config string, qr ...interface{}) *Job {
 
 func (j *Job) Copy(from string, newName string) *Job {
 	qr := map[string]string{"name": newName, "from": from, "mode": "copy"}
-	resp := j.Jenkins.Requester.Post("/createItem", nil, nil, qr)
+	resp, err := j.Jenkins.Requester.Post("/createItem", nil, nil, qr)
+	if err != nil {
+		return nil
+	}
 	if resp.StatusCode == 200 {
 		return j
 	}
@@ -269,7 +284,7 @@ func (j *Job) HasQueuedBuild() {
 
 }
 
-func (j *Job) Build(params map[string]string) *http.Response {
+func (j *Job) Build(params map[string]string) (*http.Response, error) {
 	endpoint := "/build"
 	if len(j.GetParameters()) > 0 {
 		endpoint = "/buildWithParameters"
@@ -289,7 +304,10 @@ func (j *Job) Successful(resp *http.Response) bool {
 }
 
 func (j *Job) InvokeSimple(params map[string]string) bool {
-	resp := j.Build(params)
+	resp, err := j.Build(params)
+	if err != nil {
+		return false
+	}
 	triggered := j.Successful(resp)
 	if !triggered {
 		Error.Println("Could not invoke job %s", j.GetName())
@@ -327,8 +345,11 @@ func (j *Job) Invoke(files []string, skipIfRunning bool, params map[string]strin
 
 	buildParams["json"] = string(makeJson(params))
 	b, _ := json.Marshal(buildParams)
-	resp := j.Jenkins.Requester.PostFiles(j.Base+base, bytes.NewBuffer(b), nil, reqParams, files).StatusCode
-	return resp == 200 || resp == 201
+	resp, err := j.Jenkins.Requester.PostFiles(j.Base+base, bytes.NewBuffer(b), nil, reqParams, files)
+	if err != nil {
+		return false
+	}
+	return j.Successful(resp)
 }
 
 func (j *Job) Poll() int {

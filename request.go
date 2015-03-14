@@ -38,36 +38,36 @@ type Requester struct {
 	Suffix       string
 }
 
-func (r *Requester) Post(endpoint string, payload io.Reader, responseStruct interface{}, querystring map[string]string) *http.Response {
+func (r *Requester) Post(endpoint string, payload io.Reader, responseStruct interface{}, querystring map[string]string) (*http.Response, error) {
 	r.SetHeader("Content-Type", "application/x-www-form-urlencoded")
 	r.Suffix = "api/json"
 	return r.Do("POST", endpoint, payload, &responseStruct, querystring)
 }
 
-func (r *Requester) PostFiles(endpoint string, payload io.Reader, responseStruct interface{}, querystring map[string]string, files []string) *http.Response {
+func (r *Requester) PostFiles(endpoint string, payload io.Reader, responseStruct interface{}, querystring map[string]string, files []string) (*http.Response, error) {
 	return r.Do("POST", endpoint, payload, &responseStruct, querystring, files)
 }
 
-func (r *Requester) PostXML(endpoint string, xml string, responseStruct interface{}, querystring map[string]string) *http.Response {
+func (r *Requester) PostXML(endpoint string, xml string, responseStruct interface{}, querystring map[string]string) (*http.Response, error) {
 	payload := bytes.NewBuffer([]byte(xml))
 	r.SetHeader("Content-Type", "application/xml")
 	r.Suffix = ""
 	return r.Do("POST", endpoint, payload, &responseStruct, querystring)
 }
 
-func (r *Requester) GetJSON(endpoint string, responseStruct interface{}, querystring map[string]string) *http.Response {
+func (r *Requester) GetJSON(endpoint string, responseStruct interface{}, querystring map[string]string) (*http.Response, error) {
 	r.SetHeader("Content-Type", "application/json")
 	r.Suffix = "api/json"
 	return r.Do("GET", endpoint, nil, responseStruct, querystring)
 }
 
-func (r *Requester) GetXML(endpoint string, responseStruct interface{}, querystring map[string]string) *http.Response {
+func (r *Requester) GetXML(endpoint string, responseStruct interface{}, querystring map[string]string) (*http.Response, error) {
 	r.SetHeader("Content-Type", "application/json")
 	r.Suffix = "api/json"
 	return r.Do("XML", endpoint, nil, responseStruct, querystring)
 }
 
-func (r *Requester) Get(endpoint string, responseStruct interface{}, querystring map[string]string) *http.Response {
+func (r *Requester) Get(endpoint string, responseStruct interface{}, querystring map[string]string) (*http.Response, error) {
 	r.Suffix = ""
 	return r.Do("XML", endpoint, nil, responseStruct, querystring)
 }
@@ -92,7 +92,7 @@ func (r *Requester) parseQueryString(queries map[string]string) string {
 	return output
 }
 
-func (r *Requester) Do(method string, endpoint string, payload io.Reader, responseStruct interface{}, options ...interface{}) *http.Response {
+func (r *Requester) Do(method string, endpoint string, payload io.Reader, responseStruct interface{}, options ...interface{}) (*http.Response, error) {
 	if !strings.HasSuffix(endpoint, "/") {
 		endpoint += "/"
 	}
@@ -118,7 +118,7 @@ func (r *Requester) Do(method string, endpoint string, payload io.Reader, respon
 			fileData, err := os.Open(file)
 			if err != nil {
 				Error.Println(err.Error())
-				return nil
+				return nil, err
 			}
 
 			part, err := writer.CreateFormFile("file", filepath.Base(file))
@@ -157,7 +157,7 @@ func (r *Requester) Do(method string, endpoint string, payload io.Reader, respon
 	r.LastResponse, err = r.Client.Do(req)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	defer r.LastResponse.Body.Close()
@@ -168,10 +168,10 @@ func (r *Requester) Do(method string, endpoint string, payload io.Reader, respon
 			*str = string(content)
 		}
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		return r.LastResponse
+		return r.LastResponse, nil
 	}
 	json.NewDecoder(r.LastResponse.Body).Decode(responseStruct)
-	return r.LastResponse
+	return r.LastResponse, nil
 }

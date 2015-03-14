@@ -26,7 +26,10 @@ var (
 func (v *View) AddJob(name string) bool {
 	url := "/addJobToView"
 	qr := map[string]string{"name": name}
-	resp := v.Jenkins.Requester.Post(v.Base+url, nil, nil, qr)
+	resp, err := v.Jenkins.Requester.Post(v.Base+url, nil, nil, qr)
+	if err != nil {
+		return false
+	}
 	return resp.StatusCode == 200
 }
 
@@ -34,7 +37,10 @@ func (v *View) AddJob(name string) bool {
 func (v *View) DeleteJob(name string) bool {
 	url := "/removeJobFromView"
 	qr := map[string]string{"name": name}
-	resp := v.Jenkins.Requester.Post(v.Base+url, nil, nil, qr)
+	resp, err := v.Jenkins.Requester.Post(v.Base+url, nil, nil, qr)
+	if err != nil {
+		return false
+	}
 	return resp.StatusCode == 200
 }
 
