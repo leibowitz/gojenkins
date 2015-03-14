@@ -15,6 +15,10 @@
 package gojenkins
 
 import (
+	"io"
+	"net/http"
+	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
@@ -203,6 +207,75 @@ func (b *Build) GetConsoleOutput() string {
 	var content string
 	b.Jenkins.Requester.GetXML(url, &content, nil)
 	return content
+}
+
+func (b *Build) OutputRequest(u *url.URL, start int64) (*http.Response, error) {
+	values := url.Values{}
+	values.Add("start", strconv.FormatInt(start, 10))
+	u.RawQuery = values.Encode()
+	return http.Get(u.String())
+}
+
+func (b *Build) StreamOutput() error {
+	fullurl := b.Jenkins.Requester.Base + b.Base + "/logText/progressiveText"
+	u, err := url.Parse(fullurl)
+	if err != nil {
+		return err
+	}
+
+	var startAt int64
+
+	retries := 0
+	for {
+		resp, err := b.OutputRequest(u, startAt)
+		if err != nil {
+			if retries > 2 {
+				return err
+			} else {
+				retries += 1
+				continue
+			}
+		}
+
+		retries = 0
+
+		defer resp.Body.Close()
+
+		more := false
+		if hmore := resp.Header.Get("X-More-Data"); hmore != "" {
+			more, err = strconv.ParseBool(hmore)
+			if err != nil {
+				return err
+			}
+		}
+		var size int64
+		if hsize := resp.Header.Get("X-Text-Size"); hsize != "" {
+			size, err = strconv.ParseInt(hsize, 10, 64)
+			if err != nil {
+				return err
+			}
+		}
+
+		io.Copy(os.Stdout, resp.Body)
+
+		if !more {
+			break
+		} else if hlength := resp.Header.Get("Content-Length"); hlength != "" {
+			length, err := strconv.ParseInt(hlength, 10, 64)
+			if err != nil {
+				return err
+			}
+			if length > 0 {
+				startAt = size
+			} else {
+				time.Sleep(5 * time.Second)
+			}
+		} else {
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	return nil
 }
 
 func (b *Build) GetCauses() []map[string]interface{} {
