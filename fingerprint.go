@@ -68,7 +68,7 @@ func (f Fingerprint) GetInfo() *fingerPrintResponse {
 	if resp == 200 {
 		return f.Raw
 	}
-	Error.Println("Jenkins returned status code for Fingerprint %s: %d", f.Id, resp)
+	Error.Printf("Jenkins returned status code for Fingerprint %s: %d\n", f.Id, resp)
 	return nil
 }
 

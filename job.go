@@ -310,18 +310,18 @@ func (j *Job) InvokeSimple(params map[string]string) bool {
 	}
 	triggered := j.Successful(resp)
 	if !triggered {
-		Error.Println("Could not invoke job %s", j.GetName())
+		Error.Printf("Could not invoke job %s\n", j.GetName())
 	}
 	return triggered
 }
 
 func (j *Job) Invoke(files []string, skipIfRunning bool, params map[string]string, cause string, securityToken string) bool {
 	if j.IsQueued() {
-		Error.Printf("%s is already running", j.GetName())
+		Error.Printf("%s is already running\n", j.GetName())
 		return false
 	}
 	if j.IsRunning() && skipIfRunning {
-		Warning.Printf("%s Will not request new build because %s is already running", j.GetName())
+		Warning.Printf("%s Will not request new build because %s is already running\n", j.GetName())
 	}
 
 	base := "/build"
